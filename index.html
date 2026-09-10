@@ -2,29 +2,85 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>IKI1UC · Axiom‑Orbit · minimal</title>
+<title>IKI1UC · Axiom‑Orbit · KlicK · ZaM‑Einheit</title>
 <style>
   body { background:#0b0b0b; color:#e0e0e0; font-family:Consolas; padding:20px; }
   h1 { color:#6cf; font-size:18px; }
-  .container { max-width:700px; margin:0 auto; }
+  h1 small { color:#5a7a8a; font-weight:300; }
+  .container { max-width:760px; margin:0 auto; }
   .flex { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0; }
   #orbitCanvas { background:#000; border:1px solid #333; display:block; }
-  #log { background:#111; padding:10px; height:100px; overflow:auto; font-size:12px; }
-  .btn { padding:6px 14px; background:#222; color:#fff; border:1px solid #555; cursor:pointer; font-family:Consolas; }
+  #log { background:#111; padding:10px; height:110px; overflow:auto; font-size:11px; line-height:1.5; color:#8ab0c0; }
+  #log .t { color:#3a4a5a; margin-right:6px; }
+  #log .tag { color:#6cf; margin-right:4px; }
+  #log .ok { color:#8cf0d0; }
+  #log .warn { color:#f0d080; }
+  #log .err { color:#ff6666; }
+  .btn { padding:6px 14px; background:#222; color:#fff; border:1px solid #555; cursor:pointer; font-family:Consolas; font-size:11px; border-radius:4px; }
   .btn:hover { border-color:#6cf; }
   .btn.active { border-color:#6cf; background:#2a3a4a; }
+  .btn.klick { border-color:#8cf0d0; color:#8cf0d0; }
+  .btn.zam { border-color:#b388ff; color:#b388ff; }
   .label { color:#8ab0c0; font-size:12px; }
   input[type="range"] { width:110px; accent-color:#6cf; }
+
+  /* Status-Leiste */
+  .statusbar {
+    display:flex; flex-wrap:wrap; gap:14px;
+    background:#0e141c; border:1px solid #1a2a3a; border-radius:8px;
+    padding:6px 12px; font-size:11px; color:#5a7a8a; margin:6px 0;
+  }
+  .statusbar .item { display:flex; align-items:center; gap:5px; }
+  .statusbar .val { color:#a0e0b0; font-weight:bold; }
+  .statusbar .val.gold { color:#f0d080; }
+  .statusbar .val.purple { color:#b388ff; }
+  .statusbar .led {
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:#3a3a3a; transition:0.3s;
+  }
+  .statusbar .led.on { background:#8cf0d0; box-shadow:0 0 6px #8cf0d0; }
+  .statusbar .led.master { background:#b388ff; box-shadow:0 0 6px #b388ff; }
+  .statusbar .led.warn { background:#f0d080; box-shadow:0 0 6px #f0d080; }
+
+  /* 2me / ZaM Panel */
+  .panelrow {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;
+  }
+  @media (max-width:600px) { .panelrow { grid-template-columns:1fr; } }
+  .panel {
+    background:#0e141c; border:1px solid #1a2a3a; border-radius:8px;
+    padding:8px 12px; font-size:11px;
+  }
+  .panel .head {
+    color:#b388ff; font-weight:bold; letter-spacing:1px;
+    border-bottom:1px solid rgba(179,136,255,0.1);
+    padding-bottom:4px; margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel .row { display:flex; justify-content:space-between; padding:2px 0; }
+  .panel .row .v { color:#d0e8e0; font-weight:bold; }
 </style>
 </head>
 <body>
 <div class="container">
 
-<h1>IKI1UC · Axiom‑Orbit <span style="color:#5a7a8a;font-weight:300;">minimal</span></h1>
+<h1>IKI1UC · Axiom‑Orbit <small>KlicK · ZaM‑Einheit · 2me‑kompatibel</small></h1>
 
-<canvas id="orbitCanvas" width="660" height="220"></canvas>
+<!-- Status-Leiste -->
+<div class="statusbar">
+  <span class="item"><span class="led" id="ledMaster"></span>MASTER</span>
+  <span class="item">KlicK <span class="val gold" id="klickCount">0</span></span>
+  <span class="item">ZacK <span class="val gold" id="zackCount">0</span></span>
+  <span class="item">ZaM <span class="val purple" id="zamState">idle</span></span>
+  <span class="item">2me <span class="val purple" id="me2State">allow</span></span>
+  <span class="item">Zoll <span class="val" id="zollState">offen</span></span>
+  <span class="item">Modus <span class="val" id="modeState">IQQ</span></span>
+</div>
+
+<canvas id="orbitCanvas" width="720" height="220"></canvas>
 
 <div class="flex">
+  <button class="btn klick" id="btnKlick">🔘 KlicK</button>
   <button class="btn" id="btnPlay">⏸ Pause</button>
   <button class="btn" id="btnStep">▶ Schritt</button>
   <button class="btn" id="btnReset">⟲ Reset</button>
@@ -37,15 +93,132 @@
   <button class="btn" id="btnModeIQQ">IQQ</button>
   <button class="btn" id="btnModeOCTA">OCTA</button>
   <button class="btn" id="btnModeA81">A81</button>
+  <button class="btn zam" id="btnZam">⚡ ZaM</button>
 </div>
 
-<div id="log">Bereit.</div>
+<!-- 2me / ZaM Status-Panel -->
+<div class="panelrow">
+  <div class="panel">
+    <div class="head"><span>👁️ 2me</span><span id="me2Role">allow</span></div>
+    <div class="row"><span>4× Genauigkeit</span><span class="v" id="me2Acc4x">–</span></div>
+    <div class="row"><span>2× Prüfbarkeit</span><span class="v" id="me2Ver2x">–</span></div>
+    <div class="row"><span>Override</span><span class="v" id="me2Override">aus</span></div>
+  </div>
+  <div class="panel">
+    <div class="head"><span>⚡ ZaM</span><span id="zamSeq">–</span></div>
+    <div class="row"><span>Sequenz</span><span class="v" id="zamCurrent">idle</span></div>
+    <div class="row"><span>Queue</span><span class="v" id="zamQueue">0</span></div>
+    <div class="row"><span>Letzter Run</span><span class="v" id="zamLast">–</span></div>
+  </div>
+</div>
+
+<div id="log">[init] KlicK · ZaM‑Einheit geladen.</div>
 
 </div>
 
 <script>
 "use strict";
+// ═══════════════════════════════════════════════════════════════════
+// AXIOM-ORBIT · KlicK · ZaM-EINHEIT · 2me-KOMPATIBEL
+// ═══════════════════════════════════════════════════════════════════
+// Diese Datei ist die kleinste Einheit im Verbund:
+//   KlicK (ein Schritt im Orbit) → ZaM (Sequenz) → MAINBOARD (Simulation)
+// Sie meldet jeden Schritt an den Master (respo-master.js) über
+// denselben Kanal (iki1uc-orbit) und dieselbe localStorage-Keys wie
+// das MAINBOARD. Sie hört auf 2me-Override und ZaM-Sequenzen.
+// ═══════════════════════════════════════════════════════════════════
 
+// ─── 1. KOMPATIBILITÄTS-LAYER (identisch zu MAINBOARD) ─────────────
+const MASTER_KEY = 'iki1uc-master-respo';
+const BC_NAME = 'iki1uc-orbit';
+
+let masterChannel = null;
+let isMasterConnected = false;
+
+// Persistenter Fallback (KEIN neues Array pro Aufruf!)
+const localMaster = {
+  stations: {},
+  klick: 0,
+  zack: 0,
+  zam: 'idle',
+  zoll: 'offen',
+  me2: { allow: true, boost: false, slow: false, override: false },
+  lastUpdate: Date.now(),
+};
+
+// Aus localStorage laden (Fallback für neue Tabs)
+try {
+  const stored = localStorage.getItem(MASTER_KEY);
+  if (stored) Object.assign(localMaster, JSON.parse(stored));
+} catch (_) {}
+
+// Kanal aufbauen
+try {
+  masterChannel = new BroadcastChannel(BC_NAME);
+  masterChannel.onmessage = handleMasterMessage;
+} catch (e) { log('BroadcastChannel nicht verfügbar: ' + e.message, 'sys', 'warn'); }
+
+// Eingehende Nachrichten vom Master / MAINBOARD / ZaM / 2me
+function handleMasterMessage(ev) {
+  const d = ev.data;
+  if (!d || !d.type) return;
+
+  // Master meldet seinen Stand
+  if (d.type === 'master:state' && d.payload) {
+    Object.assign(localMaster, d.payload);
+    isMasterConnected = true;
+    updateAllStatus();
+  }
+
+  // 2me sendet neue Regel
+  if (d.type === 'me2:rule') {
+    Object.assign(localMaster.me2, d.payload);
+    updateAllStatus();
+    log(`2me-Regel: ${JSON.stringify(d.payload)}`, '2me', 'ok');
+    if (d.payload.override) {
+      log('⚡ Override aktiv – Regeln umgangen', '2me', 'warn');
+    }
+  }
+
+  // ZaM startet eine Sequenz
+  if (d.type === 'zam:run') {
+    const seq = d.payload?.sequence || d.payload?.name || 'unknown';
+    localMaster.zam = 'run';
+    updateAllStatus();
+    log(`ZaM.run("${seq}")`, 'ZaM', 'ok');
+    // KlicK-Einheit führt die Sequenz aus
+    if (d.payload?.steps) {
+      runZamSequence(d.payload.steps);
+    }
+  }
+
+  // MAINBOARD meldet Simulation abgeschlossen
+  if (d.type === 'mainboard:done') {
+    log(`MAINBOARD sim fertig · Kompat ${d.payload?.compat ?? '?'}%`, 'MAINBOARD', 'ok');
+  }
+
+  // KlicK-ZacK Übergabe (99 → 1)
+  if (d.type === 'klick:zack' && d.payload) {
+    log(`🎉 ZacK: ${d.payload.zack} (aus ${d.payload.fromKlick} KlicK)`, 'ZaM', 'ok');
+  }
+}
+
+// Nachricht an Master senden
+function sendToMaster(type, payload) {
+  localMaster.lastUpdate = Date.now();
+  persistMaster();
+  if (masterChannel) {
+    try {
+      masterChannel.postMessage({ type, from: 'KLICK', payload, ts: Date.now() });
+    } catch (_) {}
+  }
+}
+
+function persistMaster() {
+  try { localStorage.setItem(MASTER_KEY, JSON.stringify(localMaster)); } catch (_) {}
+}
+
+// ─── 2. ORBIT-DEFINITION (unverändert) ─────────────────────────────
 const ORBIT = ["◉","↗","↘","3","9","↘","↗","◎","↗","↘","3","9","↘","↗",
   "◎","↗","↘","81","◆","↘","↗","△","↗","↘","27","▣","↘","↗","3","↺"];
 
@@ -59,17 +232,43 @@ const STEP_BASE = 800, STEP_FACTOR = 60, STEP_MIN = 100;
 
 const state = {
   index: 0, running: true, speed: 3, mode: 'IQQ',
-  history: [], accumulator: 0, lastFrame: null
+  history: [], accumulator: 0, lastFrame: null,
+  // NEU: KlicK-Zähler (für ZacK-Übergabe bei 100)
+  klickCounter: 0,
+  zackCounter: 0,
 };
 
 const canvas = document.getElementById('orbitCanvas');
 const ctx = canvas.getContext('2d');
 
+// ─── 3. DOM REFS ──────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const logBox = $('log');
+const klickCountEl = $('klickCount');
+const zackCountEl = $('zackCount');
+const zamStateEl = $('zamState');
+const me2StateEl = $('me2State');
+const zollStateEl = $('zollState');
+const modeStateEl = $('modeState');
+const ledMaster = $('ledMaster');
+
+// ─── 4. LOG (KlicK-Kompatibel) ────────────────────────────────────
+function log(msg, tag = 'KlicK', type = '') {
+  const entry = document.createElement('div');
+  const t = new Date().toLocaleTimeString('de-DE');
+  entry.innerHTML = `<span class="t">[${t}]</span><span class="tag">${tag}</span><span class="${type}">${msg}</span>`;
+  logBox.appendChild(entry);
+  logBox.scrollTop = logBox.scrollHeight;
+  while (logBox.children.length > 60) logBox.removeChild(logBox.firstChild);
+}
+
+// ─── 5. ZEICHNEN (unverändert, aber Modus/Farbe leicht erweitert) ─
 function drawOrbit() {
   const w = canvas.width, h = canvas.height;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, w, h);
 
+  // History (5) unten
   const hist = state.history.slice(-5);
   hist.forEach((idx, i) => {
     const alpha = 0.15 + (i / 4) * 0.3;
@@ -82,6 +281,7 @@ function drawOrbit() {
     ctx.fillText(ORBIT[idx] || '?', x, y);
   });
 
+  // Symbol groß in der Mitte
   const symbol = ORBIT[state.index] || '?';
   ctx.fillStyle = '#6cf';
   ctx.font = '48px Consolas';
@@ -92,81 +292,295 @@ function drawOrbit() {
   ctx.fillText(symbol, w/2, h/2 - 14);
   ctx.shadowBlur = 0;
 
+  // Axiom-Info
   const axiom = AXIOM_MAP[symbol] || '—';
   ctx.fillStyle = '#5a7a8a';
   ctx.font = '12px Consolas';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(`#${state.index} · ${axiom} · ${state.mode}`, w/2, h/2 + 30);
+
+  // NEU: KlicK-Zähler oben rechts
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#8cf0d0';
+  ctx.font = '10px Consolas';
+  ctx.fillText(`KlicK ${state.klickCounter} · ZacK ${state.zackCounter}`, w - 12, 12);
 }
 
+// ─── 6. KLICK-SCHRITT (Kern der Einheit) ──────────────────────────
 function stepOrbit() {
   state.index = (state.index + 1) % ORBIT.length;
   state.history.push(state.index);
   if (state.history.length > 5) state.history.shift();
-  log(`${ORBIT[state.index]} (${AXIOM_MAP[ORBIT[state.index]] || '—'})`);
+
+  // KlicK-Zähler erhöhen
+  state.klickCounter++;
+
+  // 99 → ZacK 1 (bei 100 wird zurückgesetzt)
+  if (state.klickCounter >= 100) {
+    state.klickCounter = 0;
+    state.zackCounter++;
+    const payload = { zack: state.zackCounter, fromKlick: 100, ts: Date.now() };
+    log(`🎉 100 KlicK → 1 ZacK (total: ${state.zackCounter})`, 'ZaM', 'ok');
+    sendToMaster('klick:zack', payload);
+  }
+
+  // Stand an Master melden
+  sendToMaster('klick:step', {
+    index: state.index,
+    symbol: ORBIT[state.index],
+    axiom: AXIOM_MAP[ORBIT[state.index]] || '—',
+    mode: state.mode,
+    klick: state.klickCounter,
+    zack: state.zackCounter,
+  });
+
+  // UI
+  updateAllStatus();
+  log(`${ORBIT[state.index]} (${AXIOM_MAP[ORBIT[state.index]] || '—'}) · K${state.klickCounter}/Z${state.zackCounter}`, 'KlicK');
 }
 
+// ─── 7. STEUERUNG ─────────────────────────────────────────────────
 function togglePlay() {
   state.running = !state.running;
-  document.getElementById('btnPlay').textContent = state.running ? '⏸ Pause' : '▶ Start';
+  $('btnPlay').textContent = state.running ? '⏸ Pause' : '▶ Start';
+  log(state.running ? 'Orbit läuft' : 'Orbit pausiert', 'KlicK', state.running ? 'ok' : 'warn');
 }
 
 function resetOrbit() {
-  state.index = 0; state.history = []; state.accumulator = 0;
-  log('⟲ Reset');
+  state.index = 0;
+  state.history = [];
+  state.accumulator = 0;
+  state.klickCounter = 0;
+  state.zackCounter = 0;
+  updateAllStatus();
+  log('⟲ Reset · KlicK/ZacK zurückgesetzt', 'KlicK', 'warn');
+  sendToMaster('klick:reset', { ts: Date.now() });
 }
 
 function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btnMode' + mode).classList.add('active');
+  const btn = $('btnMode' + mode);
+  if (btn) btn.classList.add('active');
+  modeStateEl.textContent = mode;
+  log(`Modus: ${mode}`, 'KlicK', 'ok');
+  sendToMaster('klick:mode', { mode, ts: Date.now() });
 }
 
-function log(msg) {
-  const el = document.getElementById('log');
-  const t = new Date().toLocaleTimeString();
-  el.textContent = `[${t}] ${msg}`;
+// ─── 8. MANUELLER KLICK (Button / Space) ──────────────────────────
+function manualKlick() {
+  // Zoll-Check: nur wenn 2me allow = true
+  if (!localMaster.me2.allow) {
+    log('⛔ KlicK blockiert – Zoll geschlossen (2me)', 'Zoll', 'err');
+    return;
+  }
+  // Boost/Slow-Effekt auf den nächsten Schritt
+  if (localMaster.me2.boost) {
+    stepOrbit(); stepOrbit(); // doppelter Impuls
+    log('⚡ Boost: 2 KlicK auf einmal', '2me', 'ok');
+  } else if (localMaster.me2.slow) {
+    stepOrbit();
+    state.accumulator -= 100; // dämpfen
+    log('🐢 Slow: gedämpft', '2me', 'warn');
+  } else {
+    stepOrbit();
+  }
 }
 
-document.getElementById('btnPlay').addEventListener('click', togglePlay);
-document.getElementById('btnStep').addEventListener('click', stepOrbit);
-document.getElementById('btnReset').addEventListener('click', resetOrbit);
-document.getElementById('btnModeIQQ').addEventListener('click', () => setMode('IQQ'));
-document.getElementById('btnModeOCTA').addEventListener('click', () => setMode('OCTA'));
-document.getElementById('btnModeA81').addEventListener('click', () => setMode('A81'));
+// ─── 9. ZaM-SEQUENZ AUSFÜHREN ─────────────────────────────────────
+function runZamSequence(steps) {
+  log(`ZaM-Sequenz: ${steps.join(' → ')}`, 'ZaM', 'ok');
+  localMaster.zam = 'running';
+  let i = 0;
+  const next = () => {
+    if (i >= steps.length) {
+      localMaster.zam = 'done';
+      updateAllStatus();
+      sendToMaster('zam:done', { sequence: steps, ts: Date.now() });
+      log(`✅ ZaM-Sequenz abgeschlossen (${steps.length} Schritte)`, 'ZaM', 'ok');
+      return;
+    }
+    const step = steps[i++];
+    log(`  ↳ Schritt ${i}/${steps.length}: ${step}`, 'ZaM');
+    // KlicK als atomare Einheit
+    stepOrbit();
+    // Wenn step = MAINBOARD → Anfrage senden
+    if (String(step).toUpperCase().includes('MAINBOARD')) {
+      sendToMaster('mainboard:run', { source: 'ZaM', ts: Date.now() });
+    }
+    setTimeout(next, 350);
+  };
+  next();
+}
 
-const speedSlider = document.getElementById('speedSlider');
-speedSlider.addEventListener('input', () => {
-  state.speed = parseInt(speedSlider.value, 10);
-  document.getElementById('speedLabel').textContent = state.speed + '×';
+// Manueller ZaM-Trigger-Button (Demo)
+function triggerZam() {
+  const seq = ['LOAD', 'KLICK_RUN', 'MAINBOARD', 'DONE'];
+  localMaster.zam = 'queued';
+  updateAllStatus();
+  sendToMaster('zam:run', { sequence: seq, steps: seq, ts: Date.now() });
+  runZamSequence(seq);
+}
+
+// ─── 10. STATUS-UI AKTUALISIEREN ──────────────────────────────────
+function updateAllStatus() {
+  klickCountEl.textContent = state.klickCounter;
+  zackCountEl.textContent = state.zackCounter;
+  zamStateEl.textContent = localMaster.zam || 'idle';
+  me2StateEl.textContent = localMaster.me2.override ? 'OVERRIDE' :
+                            localMaster.me2.boost ? 'BOOST' :
+                            localMaster.me2.slow ? 'SLOW' :
+                            localMaster.me2.allow ? 'allow' : 'block';
+  zollStateEl.textContent = localMaster.me2.allow ? 'offen' : 'blockiert';
+  zollStateEl.className = 'val ' + (localMaster.me2.allow ? 'gold' : '');
+  modeStateEl.textContent = state.mode;
+  ledMaster.className = 'led ' + (isMasterConnected ? 'master' : '');
+
+  // 2me-Panel
+  $('me2Role').textContent = localMaster.me2.override ? 'OVERRIDE' : 'allow';
+  $('me2Override').textContent = localMaster.me2.override ? 'AN' : 'aus';
+  // 4x/2x aus letzter MAINBOARD-Simulation (falls vorhanden)
+  if (localMaster.me2.acc4x !== undefined) {
+    $('me2Acc4x').textContent = localMaster.me2.acc4x.toFixed(0) + '%';
+  }
+  if (localMaster.me2.ver2x !== undefined) {
+    $('me2Ver2x').textContent = localMaster.me2.ver2x ? 'OK' : 'FAIL';
+  }
+  // ZaM-Panel
+  $('zamSeq').textContent = localMaster.zam || 'idle';
+  $('zamCurrent').textContent = localMaster.zam || 'idle';
+  $('zamQueue').textContent = localMaster.zamQueue || 0;
+  if (localMaster.lastZamRun) {
+    $('zamLast').textContent = localMaster.lastZamRun;
+  }
+}
+
+// ─── 11. EVENT BINDING ────────────────────────────────────────────
+$('btnKlick').addEventListener('click', manualKlick);
+$('btnPlay').addEventListener('click', togglePlay);
+$('btnStep').addEventListener('click', stepOrbit);
+$('btnReset').addEventListener('click', resetOrbit);
+$('btnModeIQQ').addEventListener('click', () => setMode('IQQ'));
+$('btnModeOCTA').addEventListener('click', () => setMode('OCTA'));
+$('btnModeA81').addEventListener('click', () => setMode('A81'));
+$('btnZam').addEventListener('click', triggerZam);
+
+$('speedSlider').addEventListener('input', () => {
+  state.speed = parseInt($('speedSlider').value, 10);
+  $('speedLabel').textContent = state.speed + '×';
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  // Nicht triggern, wenn in einem Eingabefeld
+  if (e.target.tagName === 'INPUT') return;
+
+  if (e.key === ' ') { e.preventDefault(); manualKlick(); }         // Leertaste = KlicK
   if (e.key === 'ArrowRight') stepOrbit();
   if (e.key === 'r' || e.key === 'R') resetOrbit();
   if (e.key === '1') setMode('IQQ');
   if (e.key === '2') setMode('OCTA');
   if (e.key === '3') setMode('A81');
+  if (e.key === 'z' || e.key === 'Z') triggerZam();
+  if (e.key === 'p' || e.key === 'P') togglePlay();
 });
 
+// ─── 12. LOOP (unverändert, rAF-basiert) ──────────────────────────
 function loop(now) {
   if (state.lastFrame === null) state.lastFrame = now;
   const delta = now - state.lastFrame;
   state.lastFrame = now;
+
   if (state.running) {
     state.accumulator += delta;
     const stepTime = Math.max(STEP_MIN, STEP_BASE - state.speed * STEP_FACTOR);
-    while (state.accumulator >= stepTime) { stepOrbit(); state.accumulator -= stepTime; }
+    let guard = 0;
+    while (state.accumulator >= stepTime && guard < 10) {
+      // Auto-Schritt respektiert Zoll
+      if (!localMaster.me2.allow) { state.accumulator = 0; break; }
+      stepOrbit();
+      state.accumulator -= stepTime;
+      guard++;
+    }
   }
+
   drawOrbit();
   requestAnimationFrame(loop);
 }
 
+// ─── 13. ÖFFENTLICHE API (ZaM / MAINBOARD / 2me) ──────────────────
+// ZaM und MAINBOARD können diese Einheit direkt ansprechen.
+window.KLICK = {
+  // Einzelner KlicK
+  klick: (source = 'external') => {
+    log(`KlicK von ${source}`, 'API', 'ok');
+    manualKlick();
+  },
+  // Ein Orbit-Schritt ohne Zoll-Check (intern)
+  step: stepOrbit,
+  // Reset
+  reset: resetOrbit,
+  // Modus setzen
+  mode: setMode,
+  // Pause / Play
+  play: () => { if (!state.running) togglePlay(); },
+  pause: () => { if (state.running) togglePlay(); },
+  // Zustand abfragen
+  state: () => ({
+    index: state.index,
+    symbol: ORBIT[state.index],
+    axiom: AXIOM_MAP[ORBIT[state.index]] || '—',
+    mode: state.mode,
+    running: state.running,
+    speed: state.speed,
+    klick: state.klickCounter,
+    zack: state.zackCounter,
+    history: [...state.history],
+  }),
+  // ZaM-Hook
+  zam: {
+    run: (sequence) => runZamSequence(sequence || ['LOAD', 'KLICK_RUN', 'DONE']),
+    sequence: (steps) => runZamSequence(steps),
+  },
+  // 2me-Hook (Regeln setzen)
+  me2: {
+    setRule: (rule) => {
+      Object.assign(localMaster.me2, rule);
+      updateAllStatus();
+      sendToMaster('me2:rule', rule);
+      log(`2me-Regel gesetzt: ${JSON.stringify(rule)}`, '2me', 'ok');
+    },
+    allow: () => { localMaster.me2.allow = true; updateAllStatus(); },
+    block: () => { localMaster.me2.allow = false; updateAllStatus(); },
+    boost: () => { localMaster.me2.boost = true; localMaster.me2.slow = false; updateAllStatus(); },
+    slow: () => { localMaster.me2.slow = true; localMaster.me2.boost = false; updateAllStatus(); },
+    override: () => { localMaster.me2.override = true; updateAllStatus(); },
+  },
+  // Zoll-Check
+  zoll: {
+    check: () => localMaster.me2.allow ? { passed: true, reason: 'OK' }
+                                        : { passed: false, reason: 'Zoll geschlossen' },
+  },
+  // Master-Info
+  master: {
+    connected: () => isMasterConnected,
+    state: () => ({ ...localMaster }),
+  },
+};
+
+// ─── 14. INIT ─────────────────────────────────────────────────────
 setMode('IQQ');
 state.history.push(0);
+updateAllStatus();
+log('KlicK · ZaM-Einheit bereit', 'init', 'ok');
+log('Kompatibel: MAINBOARD · 2me · ZaM · respo-master.js', 'init');
+log('Kanal: iki1uc-orbit · Key: iki1uc-master-respo', 'init');
+log('Leertaste = KlicK · Z = ZaM-Sequenz · P = Pause', 'init', 'warn');
+
 requestAnimationFrame(loop);
+
+console.log('%c⚡ KLICK · ZaM-EINHEIT geladen', 'color:#8cf0d0;font-weight:bold');
+console.log('→ window.KLICK.klick() · .step() · .zam.run() · .me2.setRule()');
 </script>
 </body>
 </html>
